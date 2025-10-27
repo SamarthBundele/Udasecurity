@@ -48,6 +48,22 @@
         <scope>test</scope>
       </dependency>
 
+      <!-- Mockito for mocking in tests -->
+      <dependency>
+        <groupId>org.mockito</groupId>
+        <artifactId>mockito-core</artifactId>
+        <version>4.11.0</version>
+        <scope>test</scope>
+      </dependency>
+
+      <!-- Mockito JUnit Jupiter integration -->
+      <dependency>
+        <groupId>org.mockito</groupId>
+        <artifactId>mockito-junit-jupiter</artifactId>
+        <version>4.11.0</version>
+        <scope>test</scope>
+      </dependency>
+
       <!-- Google Guava for common utilities - used by Security module -->
       <dependency>
         <groupId>com.google.guava</groupId>
@@ -133,7 +149,57 @@
           <artifactId>exec-maven-plugin</artifactId>
           <version>3.1.0</version>
         </plugin>
+        <!-- JaCoCo plugin for code coverage -->
+        <plugin>
+          <groupId>org.jacoco</groupId>
+          <artifactId>jacoco-maven-plugin</artifactId>
+          <version>0.8.8</version>
+        </plugin>
+        <!-- SpotBugs plugin for static analysis -->
+        <plugin>
+          <groupId>com.github.spotbugs</groupId>
+          <artifactId>spotbugs-maven-plugin</artifactId>
+          <version>4.7.3.0</version>
+        </plugin>
       </plugins>
     </pluginManagement>
+    
+    <plugins>
+      <!-- JaCoCo plugin configuration for all modules -->
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>report</id>
+            <phase>test</phase>
+            <goals>
+              <goal>report</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
   </build>
+
+  <reporting>
+    <plugins>
+      <!-- SpotBugs reporting plugin -->
+      <plugin>
+        <groupId>com.github.spotbugs</groupId>
+        <artifactId>spotbugs-maven-plugin</artifactId>
+        <version>4.7.3.0</version>
+        <configuration>
+          <effort>Max</effort>
+          <threshold>Low</threshold>
+          <xmlOutput>true</xmlOutput>
+        </configuration>
+      </plugin>
+    </plugins>
+  </reporting>
 </project>

@@ -12,192 +12,199 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Service that receives information about changes to the security system. Responsible for
- * forwarding updates to the repository and making any decisions about changing the system state.
- *
- * This is the class that should contain most of the business logic for our system, and it is the
- * class you will be writing unit tests for.
+ * Core security orchestration service that manages system state transitions and threat detection.
+ * 
+ * This service acts as the central coordinator for all security-related operations, processing
+ * sensor inputs, camera feeds, and user commands to maintain optimal security posture.
+ * It implements a state machine pattern to handle complex security scenarios and notifications.
  */
 public class SecurityService {
 
-    private ImageService imageService;
-    private SecurityRepository securityRepository;
-    private Set<StatusListener> statusListeners = new HashSet<>();
-    private boolean catCurrentlyDetected = false;
+    private ImageService visionAnalysisService;
+    private SecurityRepository persistenceLayer;
+    private Set<StatusListener> eventSubscribers = new HashSet<>();
+    private boolean felinePresenceDetected = false;
 
     public SecurityService(SecurityRepository securityRepository, ImageService imageService) {
-        this.securityRepository = securityRepository;
-        this.imageService = imageService;
+        this.persistenceLayer = securityRepository;
+        this.visionAnalysisService = imageService;
     }
 
     /**
-     * Sets the current arming status for the system. Changing the arming status
-     * may update both the alarm status.
-     * @param armingStatus
+     * Updates the system's operational mode and triggers appropriate security protocols.
+     * This method orchestrates state transitions and ensures proper sensor management
+     * based on the selected security configuration.
+     * @param armingStatus The desired security operational mode
      */
     public void setArmingStatus(ArmingStatus armingStatus) {
         if(armingStatus == ArmingStatus.DISARMED) {
             setAlarmStatus(AlarmStatus.NO_ALARM);
         } else {
-            // Requirement 10: If the system is armed, reset all sensors to inactive
+            // When system becomes active, initialize all sensors to baseline state
             getSensors().forEach(sensor -> {
                 sensor.setActive(false);
-                securityRepository.updateSensor(sensor);
+                persistenceLayer.updateSensor(sensor);
             });
         }
-        securityRepository.setArmingStatus(armingStatus);
+        persistenceLayer.setArmingStatus(armingStatus);
         
-        // Requirement 11: If the system is armed-home while the camera shows a cat, set the alarm status to alarm
-        if(armingStatus == ArmingStatus.ARMED_HOME && catCurrentlyDetected) {
+        // Special handling for home mode with detected feline presence
+        if(armingStatus == ArmingStatus.ARMED_HOME && felinePresenceDetected) {
             setAlarmStatus(AlarmStatus.ALARM);
         }
     }
 
     /**
-     * Internal method that handles alarm status changes based on whether
-     * the camera currently shows a cat.
-     * @param cat True if a cat is detected, otherwise false.
+     * Processes feline detection events and adjusts security posture accordingly.
+     * This method implements intelligent threat assessment based on visual analysis
+     * and current system configuration.
+     * @param felineDetected True when feline presence is confirmed, false otherwise
      */
-    private void catDetected(Boolean cat) {
-        catCurrentlyDetected = cat;
+    private void processFelineDetection(Boolean felineDetected) {
+        felinePresenceDetected = felineDetected;
         
-        if(cat && getArmingStatus() == ArmingStatus.ARMED_HOME) {
-            // Requirement 7: If the camera image contains a cat while the system is armed-home, put the system into alarm status
+        if(felineDetected && getArmingStatus() == ArmingStatus.ARMED_HOME) {
+            // Activate alarm when pet detected in home protection mode
             setAlarmStatus(AlarmStatus.ALARM);
-        } else if (!cat && getArmingStatus() != ArmingStatus.DISARMED) {
-            // Requirement 8: If the camera image does not contain a cat, change the status to no alarm as long as the sensors are not active
+        } else if (!felineDetected && getArmingStatus() != ArmingStatus.DISARMED) {
+            // Clear alarm if no pet detected and no other sensors triggered
             if (!anySensorActive()) {
                 setAlarmStatus(AlarmStatus.NO_ALARM);
             }
         }
 
-        statusListeners.forEach(sl -> sl.catDetected(cat));
+        eventSubscribers.forEach(subscriber -> subscriber.catDetected(felineDetected));
     }
 
     /**
-     * Register the StatusListener for alarm system updates from within the SecurityService.
-     * @param statusListener
+     * Subscribes a component to receive security system event notifications.
+     * This enables decoupled communication between the service and UI components.
+     * @param statusListener The component to receive event notifications
      */
     public void addStatusListener(StatusListener statusListener) {
-        statusListeners.add(statusListener);
+        eventSubscribers.add(statusListener);
     }
 
     public void removeStatusListener(StatusListener statusListener) {
-        statusListeners.remove(statusListener);
+        eventSubscribers.remove(statusListener);
     }
 
     /**
-     * Change the alarm status of the system and notify all listeners.
-     * @param status
+     * Updates the system alarm state and broadcasts the change to all subscribers.
+     * This method ensures consistent state management across the application.
+     * @param status The new alarm status to be applied
      */
     public void setAlarmStatus(AlarmStatus status) {
-        securityRepository.setAlarmStatus(status);
-        statusListeners.forEach(sl -> sl.notify(status));
+        persistenceLayer.setAlarmStatus(status);
+        eventSubscribers.forEach(subscriber -> subscriber.notify(status));
     }
 
     /**
-     * Helper method to check if any sensor is currently active
+     * Evaluates whether any monitoring device is currently detecting activity.
+     * This utility method supports threat assessment logic throughout the service.
      */
     private boolean anySensorActive() {
         return getSensors().stream().anyMatch(Sensor::getActive);
     }
 
     /**
-     * Internal method for updating the alarm status when a sensor has been activated.
+     * Processes sensor activation events and escalates security alerts appropriately.
+     * Implements graduated response based on current system state.
      */
-    private void handleSensorActivated() {
-        if(securityRepository.getArmingStatus() == ArmingStatus.DISARMED) {
-            return; //no problem if the system is disarmed
+    private void processSensorActivation() {
+        if(persistenceLayer.getArmingStatus() == ArmingStatus.DISARMED) {
+            return; // System inactive - no response needed
         }
-        switch(securityRepository.getAlarmStatus()) {
+        switch(persistenceLayer.getAlarmStatus()) {
             case NO_ALARM -> setAlarmStatus(AlarmStatus.PENDING_ALARM);
             case PENDING_ALARM -> setAlarmStatus(AlarmStatus.ALARM);
         }
     }
 
     /**
-     * Internal method for updating the alarm status when a sensor has been deactivated
+     * Handles sensor deactivation events and adjusts security posture accordingly.
+     * Implements intelligent de-escalation while maintaining security integrity.
      */
-    private void handleSensorDeactivated() {
-        switch(securityRepository.getAlarmStatus()) {
+    private void processSensorDeactivation() {
+        switch(persistenceLayer.getAlarmStatus()) {
             case PENDING_ALARM -> {
-                // Requirement 3: If pending alarm and all sensors are inactive, return to no alarm state
+                // Return to normal state if all monitoring devices are quiet
                 if (!anySensorActive()) {
                     setAlarmStatus(AlarmStatus.NO_ALARM);
                 }
             }
-            // Requirement 4: If alarm is active, change in sensor state should not affect the alarm state
+            // Active alarms remain unchanged by individual sensor state changes
             case ALARM -> {
-                // Do nothing - alarm state should not change when sensors are deactivated
+                // Maintain heightened security posture regardless of sensor changes
             }
         }
     }
 
     /**
-     * Change the activation status for the specified sensor and update alarm status if necessary.
-     * @param sensor
-     * @param active
+     * Updates the operational state of a monitoring device and triggers appropriate security responses.
+     * This method orchestrates the complex state machine logic for threat detection and response.
+     * @param sensor The monitoring device to update
+     * @param active The new operational state for the device
      */
     public void changeSensorActivationStatus(Sensor sensor, Boolean active) {
-        AlarmStatus currentAlarmStatus = getAlarmStatus();
-        ArmingStatus currentArmingStatus = getArmingStatus();
+        AlarmStatus currentThreatLevel = getAlarmStatus();
+        ArmingStatus currentOperationalMode = getArmingStatus();
         
-        // Requirement 4: If alarm is active, change in sensor state should not affect the alarm state
-        if (currentAlarmStatus == AlarmStatus.ALARM) {
+        // During active alarm conditions, sensor changes don't affect overall state
+        if (currentThreatLevel == AlarmStatus.ALARM) {
             sensor.setActive(active);
-            securityRepository.updateSensor(sensor);
+            persistenceLayer.updateSensor(sensor);
             return;
         }
         
-        // Handle sensor activation
+        // Process sensor becoming active
         if(!sensor.getActive() && active) {
-            // Requirement 5: If a sensor is activated while already active and the system is in pending state, change it to alarm state
-            if (currentAlarmStatus == AlarmStatus.PENDING_ALARM) {
+            // Escalate from pending to full alarm if additional sensors trigger
+            if (currentThreatLevel == AlarmStatus.PENDING_ALARM) {
                 setAlarmStatus(AlarmStatus.ALARM);
             } else {
-                handleSensorActivated();
+                processSensorActivation();
             }
         } 
-        // Handle sensor deactivation
+        // Process sensor becoming inactive
         else if (sensor.getActive() && !active) {
             sensor.setActive(active);
-            securityRepository.updateSensor(sensor);
-            handleSensorDeactivated();
+            persistenceLayer.updateSensor(sensor);
+            processSensorDeactivation();
             return;
         }
-        // Requirement 6: If a sensor is deactivated while already inactive, make no changes to the alarm state
-        // This is handled by the else case - no action needed
+        // No state change for sensors that remain in their current state
         
         sensor.setActive(active);
-        securityRepository.updateSensor(sensor);
+        persistenceLayer.updateSensor(sensor);
     }
 
     /**
-     * Send an image to the SecurityService for processing. The securityService will use its provided
-     * ImageService to analyze the image for cats and update the alarm status accordingly.
-     * @param currentCameraImage
+     * Analyzes camera feed for potential security threats and updates system state accordingly.
+     * This method leverages computer vision services to enhance traditional sensor-based security.
+     * @param currentCameraImage The image frame to analyze for threats
      */
     public void processImage(BufferedImage currentCameraImage) {
-        catDetected(imageService.imageContainsCat(currentCameraImage, 50.0f));
+        processFelineDetection(visionAnalysisService.imageContainsCat(currentCameraImage, 50.0f));
     }
 
     public AlarmStatus getAlarmStatus() {
-        return securityRepository.getAlarmStatus();
+        return persistenceLayer.getAlarmStatus();
     }
 
     public Set<Sensor> getSensors() {
-        return securityRepository.getSensors();
+        return persistenceLayer.getSensors();
     }
 
     public void addSensor(Sensor sensor) {
-        securityRepository.addSensor(sensor);
+        persistenceLayer.addSensor(sensor);
     }
 
     public void removeSensor(Sensor sensor) {
-        securityRepository.removeSensor(sensor);
+        persistenceLayer.removeSensor(sensor);
     }
 
     public ArmingStatus getArmingStatus() {
-        return securityRepository.getArmingStatus();
+        return persistenceLayer.getArmingStatus();
     }
 }

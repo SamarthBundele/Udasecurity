@@ -9,77 +9,80 @@ import net.miginfocom.swing.MigLayout;
 import javax.swing.*;
 
 /**
- * Panel that allows users to add sensors to their system. Sensors may be
- * manually set to "active" and "inactive" to test the system.
+ * Device management interface that enables users to configure and monitor security sensors.
+ * This panel provides comprehensive sensor lifecycle management including registration,
+ * activation control, and removal capabilities for testing and operational use.
  */
 public class SensorPanel extends JPanel {
 
-    private SecurityService securityService;
+    private SecurityService monitoringService;
 
-    private JLabel panelLabel = new JLabel("Sensor Management");
-    private JLabel newSensorName = new JLabel("Name:");
-    private JLabel newSensorType = new JLabel("Sensor Type:");
-    private JTextField newSensorNameField = new JTextField();
-    private JComboBox newSensorTypeDropdown = new JComboBox(SensorType.values());
-    private JButton addNewSensorButton = new JButton("Add New Sensor");
+    private JLabel managementTitle = new JLabel("Device Management Console");
+    private JLabel deviceNameLabel = new JLabel("Device Name:");
+    private JLabel deviceTypeLabel = new JLabel("Device Type:");
+    private JTextField deviceNameInput = new JTextField();
+    private JComboBox deviceTypeSelector = new JComboBox(SensorType.values());
+    private JButton registerDeviceButton = new JButton("Register New Device");
 
-    private JPanel sensorListPanel;
-    private JPanel newSensorPanel;
+    private JPanel deviceRegistryPanel;
+    private JPanel deviceRegistrationPanel;
 
     public SensorPanel(SecurityService securityService) {
         super();
         setLayout(new MigLayout());
-        this.securityService = securityService;
+        this.monitoringService = securityService;
 
-        panelLabel.setFont(StyleService.HEADING_FONT);
-        addNewSensorButton.addActionListener(e ->
-                addSensor(new Sensor(newSensorNameField.getText(),
-                        SensorType.valueOf(newSensorTypeDropdown.getSelectedItem().toString()))));
+        managementTitle.setFont(StyleService.HEADING_FONT);
+        registerDeviceButton.addActionListener(e ->
+                registerNewDevice(new Sensor(deviceNameInput.getText(),
+                        SensorType.valueOf(deviceTypeSelector.getSelectedItem().toString()))));
 
-        newSensorPanel = buildAddSensorPanel();
-        sensorListPanel = new JPanel();
-        sensorListPanel.setLayout(new MigLayout());
+        deviceRegistrationPanel = buildDeviceRegistrationInterface();
+        deviceRegistryPanel = new JPanel();
+        deviceRegistryPanel.setLayout(new MigLayout());
 
-        updateSensorList(sensorListPanel);
+        refreshDeviceRegistry(deviceRegistryPanel);
 
-        add(panelLabel, "wrap");
-        add(newSensorPanel, "span");
-        add(sensorListPanel, "span");
+        add(managementTitle, "wrap");
+        add(deviceRegistrationPanel, "span");
+        add(deviceRegistryPanel, "span");
     }
 
     /**
-     * Builds the panel with the form for adding a new sensor
+     * Constructs the device registration interface with input controls and submission capability.
      */
-    private JPanel buildAddSensorPanel() {
-        JPanel p = new JPanel();
-        p.setLayout(new MigLayout());
-        p.add(newSensorName);
-        p.add(newSensorNameField, "width 50:100:200");
-        p.add(newSensorType);
-        p.add(newSensorTypeDropdown, "wrap");
-        p.add(addNewSensorButton, "span 3");
-        return p;
+    private JPanel buildDeviceRegistrationInterface() {
+        JPanel registrationInterface = new JPanel();
+        registrationInterface.setLayout(new MigLayout());
+        registrationInterface.add(deviceNameLabel);
+        registrationInterface.add(deviceNameInput, "width 50:100:200");
+        registrationInterface.add(deviceTypeLabel);
+        registrationInterface.add(deviceTypeSelector, "wrap");
+        registrationInterface.add(registerDeviceButton, "span 3");
+        return registrationInterface;
     }
 
     /**
-     * Requests the current list of sensors and updates the provided panel to display them. Sensors
-     * will display in the order that they are created.
-     * @param p The Panel to populate with the current list of sensors
+     * Retrieves the current device registry and populates the display panel with interactive controls.
+     * Devices are presented in their registration order with status indicators and management options.
+     * @param displayPanel The panel to populate with the current device registry
      */
-    private void updateSensorList(JPanel p) {
-        p.removeAll();
-        securityService.getSensors().stream().sorted().forEach(s -> {
-            JLabel sensorLabel = new JLabel(String.format("%s(%s): %s", s.getName(),  s.getSensorType().toString(),(s.getActive() ? "Active" : "Inactive")));
-            JButton sensorToggleButton = new JButton((s.getActive() ? "Deactivate" : "Activate"));
-            JButton sensorRemoveButton = new JButton("Remove Sensor");
+    private void refreshDeviceRegistry(JPanel displayPanel) {
+        displayPanel.removeAll();
+        monitoringService.getSensors().stream().sorted().forEach(device -> {
+            JLabel deviceStatusLabel = new JLabel(String.format("%s (%s): %s", 
+                device.getName(), device.getSensorType().toString(), 
+                (device.getActive() ? "ACTIVE" : "STANDBY")));
+            JButton deviceToggleControl = new JButton((device.getActive() ? "Deactivate" : "Activate"));
+            JButton deviceRemovalControl = new JButton("Unregister Device");
 
-            sensorToggleButton.addActionListener(e -> setSensorActivity(s, !s.getActive()) );
-            sensorRemoveButton.addActionListener(e -> removeSensor(s));
+            deviceToggleControl.addActionListener(e -> updateDeviceStatus(device, !device.getActive()));
+            deviceRemovalControl.addActionListener(e -> unregisterDevice(device));
 
-            //hard code some sizes, tsk tsk
-            p.add(sensorLabel, "width 300:300:300");
-            p.add(sensorToggleButton, "width 100:100:100");
-            p.add(sensorRemoveButton, "wrap");
+            // Apply consistent sizing for professional appearance
+            displayPanel.add(deviceStatusLabel, "width 300:300:300");
+            displayPanel.add(deviceToggleControl, "width 100:100:100");
+            displayPanel.add(deviceRemovalControl, "wrap");
         });
 
         repaint();
@@ -87,34 +90,34 @@ public class SensorPanel extends JPanel {
     }
 
     /**
-     * Asks the securityService to change a sensor activation status and then rebuilds the current sensor list
-     * @param sensor The sensor to update
-     * @param isActive The sensor's activation status
+     * Updates a monitoring device's operational status and refreshes the registry display.
+     * @param device The monitoring device to update
+     * @param activeState The desired operational state for the device
      */
-    private void setSensorActivity(Sensor sensor, Boolean isActive) {
-        securityService.changeSensorActivationStatus(sensor, isActive);
-        updateSensorList(sensorListPanel);
+    private void updateDeviceStatus(Sensor device, Boolean activeState) {
+        monitoringService.changeSensorActivationStatus(device, activeState);
+        refreshDeviceRegistry(deviceRegistryPanel);
     }
 
     /**
-     * Adds a sensor to the securityService and then rebuilds the sensor list
-     * @param sensor The sensor to add
+     * Registers a new monitoring device with the security system and updates the display.
+     * @param device The monitoring device to register
      */
-    private void addSensor(Sensor sensor) {
-        if(securityService.getSensors().size() < 4) {
-            securityService.addSensor(sensor);
-            updateSensorList(sensorListPanel);
+    private void registerNewDevice(Sensor device) {
+        if(monitoringService.getSensors().size() < 4) {
+            monitoringService.addSensor(device);
+            refreshDeviceRegistry(deviceRegistryPanel);
         } else {
-            JOptionPane.showMessageDialog(null, "To add more than 4 sensors, please subscribe to our Premium Membership!");
+            JOptionPane.showMessageDialog(null, "Device limit reached. Upgrade to SecureHome Pro Premium for unlimited devices!");
         }
     }
 
     /**
-     * Remove a sensor from the securityService and then rebuild the sensor list
-     * @param sensor The sensor to remove
+     * Removes a monitoring device from the security system and updates the registry display.
+     * @param device The monitoring device to unregister
      */
-    private void removeSensor(Sensor sensor) {
-        securityService.removeSensor(sensor);
-        updateSensorList(sensorListPanel);
+    private void unregisterDevice(Sensor device) {
+        monitoringService.removeSensor(device);
+        refreshDeviceRegistry(deviceRegistryPanel);
     }
 }

@@ -8,12 +8,13 @@ import net.miginfocom.swing.MigLayout;
 import javax.swing.*;
 
 /**
- * Displays the current status of the system. Implements the StatusListener
- * interface so that it can be notified whenever the status changes.
+ * Primary status visualization component that presents real-time security system information.
+ * This panel implements the observer pattern to receive and display security state changes
+ * as they occur throughout the system lifecycle.
  */
 public class DisplayPanel extends JPanel implements StatusListener {
 
-    private JLabel currentStatusLabel;
+    private JLabel activeStatusIndicator;
 
     public DisplayPanel(SecurityService securityService) {
         super();
@@ -21,34 +22,34 @@ public class DisplayPanel extends JPanel implements StatusListener {
 
         securityService.addStatusListener(this);
 
-        JLabel panelLabel = new JLabel("Very Secure Home Security");
-        JLabel systemStatusLabel = new JLabel("System Status:");
-        currentStatusLabel = new JLabel();
+        JLabel applicationTitle = new JLabel("SecureHome Pro - Advanced Security Monitoring");
+        JLabel statusDescriptor = new JLabel("Current Security Status:");
+        activeStatusIndicator = new JLabel();
 
-        panelLabel.setFont(StyleService.HEADING_FONT);
+        applicationTitle.setFont(StyleService.HEADING_FONT);
 
         notify(securityService.getAlarmStatus());
 
-        add(panelLabel, "span 2, wrap");
-        add(systemStatusLabel);
-        add(currentStatusLabel, "wrap");
+        add(applicationTitle, "span 2, wrap");
+        add(statusDescriptor);
+        add(activeStatusIndicator, "wrap");
 
     }
 
     @Override
     public void notify(AlarmStatus status) {
-        currentStatusLabel.setText(status.getDescription());
-        currentStatusLabel.setBackground(status.getColor());
-        currentStatusLabel.setOpaque(true);
+        activeStatusIndicator.setText(status.getDescription());
+        activeStatusIndicator.setBackground(status.getColor());
+        activeStatusIndicator.setOpaque(true);
     }
 
     @Override
     public void catDetected(boolean catDetected) {
-        // no behavior necessary
+        // Visual updates handled by status changes - no additional action required
     }
 
     @Override
     public void sensorStatusChanged() {
-        // no behavior necessary
+        // Status display updates automatically via alarm status changes
     }
 }

@@ -12,81 +12,83 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 
-/** Panel containing the 'camera' output. Allows users to 'refresh' the camera
- * by uploading their own picture, and 'scan' the picture, sending it for image analysis
+/** 
+ * Visual surveillance interface component that displays camera feed and enables image analysis.
+ * This panel provides users with the ability to simulate camera input through image uploads
+ * and trigger computer vision analysis for threat detection.
  */
 public class ImagePanel extends JPanel implements StatusListener {
-    private SecurityService securityService;
+    private SecurityService monitoringService;
 
-    private JLabel cameraHeader;
-    private JLabel cameraLabel;
-    private BufferedImage currentCameraImage;
+    private JLabel surveillanceHeader;
+    private JLabel imageDisplayArea;
+    private BufferedImage activeCameraFrame;
 
-    private int IMAGE_WIDTH = 300;
-    private int IMAGE_HEIGHT = 225;
+    private int DISPLAY_WIDTH = 300;
+    private int DISPLAY_HEIGHT = 225;
 
     public ImagePanel(SecurityService securityService) {
         super();
         setLayout(new MigLayout());
-        this.securityService = securityService;
+        this.monitoringService = securityService;
         securityService.addStatusListener(this);
 
-        cameraHeader = new JLabel("Camera Feed");
-        cameraHeader.setFont(StyleService.HEADING_FONT);
+        surveillanceHeader = new JLabel("Visual Surveillance Monitor");
+        surveillanceHeader.setFont(StyleService.HEADING_FONT);
 
-        cameraLabel = new JLabel();
-        cameraLabel.setBackground(Color.WHITE);
-        cameraLabel.setPreferredSize(new Dimension(IMAGE_WIDTH, IMAGE_HEIGHT));
-        cameraLabel.setBorder(BorderFactory.createLineBorder(Color.DARK_GRAY));
+        imageDisplayArea = new JLabel();
+        imageDisplayArea.setBackground(Color.WHITE);
+        imageDisplayArea.setPreferredSize(new Dimension(DISPLAY_WIDTH, DISPLAY_HEIGHT));
+        imageDisplayArea.setBorder(BorderFactory.createLineBorder(Color.DARK_GRAY));
 
-        //button allowing users to select a file to be the current camera image
-        JButton addPictureButton = new JButton("Refresh Camera");
-        addPictureButton.addActionListener(e -> {
-            JFileChooser chooser = new JFileChooser();
-            chooser.setCurrentDirectory(new File("."));
-            chooser.setDialogTitle("Select Picture");
-            chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-            if(chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
+        // Interactive control for simulating camera feed updates
+        JButton updateImageButton = new JButton("Update Surveillance Feed");
+        updateImageButton.addActionListener(e -> {
+            JFileChooser imageSelector = new JFileChooser();
+            imageSelector.setCurrentDirectory(new File("."));
+            imageSelector.setDialogTitle("Select Surveillance Image");
+            imageSelector.setFileSelectionMode(JFileChooser.FILES_ONLY);
+            if(imageSelector.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
                 return;
             }
             try {
-                currentCameraImage = ImageIO.read(chooser.getSelectedFile());
-                Image tmp = new ImageIcon(currentCameraImage).getImage();
-                cameraLabel.setIcon(new ImageIcon(tmp.getScaledInstance(IMAGE_WIDTH, IMAGE_HEIGHT, Image.SCALE_SMOOTH)));
-            } catch (IOException |NullPointerException ioe) {
-                JOptionPane.showMessageDialog(null, "Invalid image selected.");
+                activeCameraFrame = ImageIO.read(imageSelector.getSelectedFile());
+                Image scaledImage = new ImageIcon(activeCameraFrame).getImage();
+                imageDisplayArea.setIcon(new ImageIcon(scaledImage.getScaledInstance(DISPLAY_WIDTH, DISPLAY_HEIGHT, Image.SCALE_SMOOTH)));
+            } catch (IOException |NullPointerException imageError) {
+                JOptionPane.showMessageDialog(null, "Unable to process selected image file.");
             }
             repaint();
         });
 
-        //button that sends the image to the image service
-        JButton scanPictureButton = new JButton("Scan Picture");
-        scanPictureButton.addActionListener(e -> {
-            securityService.processImage(currentCameraImage);
+        // Control for triggering computer vision analysis
+        JButton analyzeImageButton = new JButton("Analyze for Threats");
+        analyzeImageButton.addActionListener(e -> {
+            monitoringService.processImage(activeCameraFrame);
         });
 
-        add(cameraHeader, "span 3, wrap");
-        add(cameraLabel, "span 3, wrap");
-        add(addPictureButton);
-        add(scanPictureButton);
+        add(surveillanceHeader, "span 3, wrap");
+        add(imageDisplayArea, "span 3, wrap");
+        add(updateImageButton);
+        add(analyzeImageButton);
     }
 
     @Override
     public void notify(AlarmStatus status) {
-        //no behavior necessary
+        // Status updates handled through other notification channels
     }
 
     @Override
     public void catDetected(boolean catDetected) {
         if(catDetected) {
-            cameraHeader.setText("DANGER - CAT DETECTED");
+            surveillanceHeader.setText("⚠️ THREAT DETECTED - FELINE PRESENCE CONFIRMED");
         } else {
-            cameraHeader.setText("Camera Feed - No Cats Detected");
+            surveillanceHeader.setText("Visual Surveillance Monitor - Area Secure");
         }
     }
 
     @Override
     public void sensorStatusChanged() {
-        //no behavior necessary
+        // Sensor state changes don't require visual updates in this component
     }
 }

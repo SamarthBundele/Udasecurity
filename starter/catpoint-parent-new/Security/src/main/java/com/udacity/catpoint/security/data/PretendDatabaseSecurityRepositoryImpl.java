@@ -9,84 +9,85 @@ import java.util.TreeSet;
 import java.util.prefs.Preferences;
 
 /**
- * Fake repository implementation for demo purposes. Stores state information in local
- * memory and writes it to user preferences between app loads. This implementation is
- * intentionally a little hard to use in unit tests, so watch out!
+ * In-memory security data repository with persistent storage capabilities.
+ * This implementation provides a lightweight data layer for demonstration and development,
+ * utilizing Java Preferences API for state persistence across application sessions.
+ * Note: This implementation prioritizes simplicity over testability.
  */
 public class PretendDatabaseSecurityRepositoryImpl implements SecurityRepository{
 
-    private Set<Sensor> sensors;
-    private AlarmStatus alarmStatus;
-    private ArmingStatus armingStatus;
+    private Set<Sensor> monitoringDevices;
+    private AlarmStatus currentThreatLevel;
+    private ArmingStatus operationalMode;
 
-    //preference keys
-    private static final String SENSORS = "SENSORS";
-    private static final String ALARM_STATUS = "ALARM_STATUS";
-    private static final String ARMING_STATUS = "ARMING_STATUS";
+    // Persistent storage configuration keys
+    private static final String DEVICE_REGISTRY = "SENSORS";
+    private static final String THREAT_LEVEL_STATE = "ALARM_STATUS";
+    private static final String OPERATIONAL_MODE_STATE = "ARMING_STATUS";
 
-    private static final Preferences prefs = Preferences.userNodeForPackage(PretendDatabaseSecurityRepositoryImpl.class);
-    private static final Gson gson = new Gson(); //used to serialize objects into JSON
+    private static final Preferences persistentStorage = Preferences.userNodeForPackage(PretendDatabaseSecurityRepositoryImpl.class);
+    private static final Gson jsonSerializer = new Gson(); // Handles object serialization for storage
 
     public PretendDatabaseSecurityRepositoryImpl() {
-        //load system state from prefs, or else default
-        alarmStatus = AlarmStatus.valueOf(prefs.get(ALARM_STATUS, AlarmStatus.NO_ALARM.toString()));
-        armingStatus = ArmingStatus.valueOf(prefs.get(ARMING_STATUS, ArmingStatus.DISARMED.toString()));
+        // Initialize system state from persistent storage with sensible defaults
+        currentThreatLevel = AlarmStatus.valueOf(persistentStorage.get(THREAT_LEVEL_STATE, AlarmStatus.NO_ALARM.toString()));
+        operationalMode = ArmingStatus.valueOf(persistentStorage.get(OPERATIONAL_MODE_STATE, ArmingStatus.DISARMED.toString()));
 
-        //we've serialized our sensor objects for storage, which should be a good warning sign that
-        // this is likely an impractical solution for a real system
-        String sensorString = prefs.get(SENSORS, null);
-        if(sensorString == null) {
-            sensors = new TreeSet<>();
+        // Restore monitoring device registry from serialized storage
+        // Note: JSON serialization of complex objects indicates this is a prototype implementation
+        String deviceRegistryData = persistentStorage.get(DEVICE_REGISTRY, null);
+        if(deviceRegistryData == null) {
+            monitoringDevices = new TreeSet<>();
         } else {
-            Type type = new TypeToken<Set<Sensor>>() {
+            Type deviceCollectionType = new TypeToken<Set<Sensor>>() {
             }.getType();
-            sensors = gson.fromJson(sensorString, type);
+            monitoringDevices = jsonSerializer.fromJson(deviceRegistryData, deviceCollectionType);
         }
     }
 
     @Override
     public void addSensor(Sensor sensor) {
-        sensors.add(sensor);
-        prefs.put(SENSORS, gson.toJson(sensors));
+        monitoringDevices.add(sensor);
+        persistentStorage.put(DEVICE_REGISTRY, jsonSerializer.toJson(monitoringDevices));
     }
 
     @Override
     public void removeSensor(Sensor sensor) {
-        sensors.remove(sensor);
-        prefs.put(SENSORS, gson.toJson(sensors));
+        monitoringDevices.remove(sensor);
+        persistentStorage.put(DEVICE_REGISTRY, jsonSerializer.toJson(monitoringDevices));
     }
 
     @Override
     public void updateSensor(Sensor sensor) {
-        sensors.remove(sensor);
-        sensors.add(sensor);
-        prefs.put(SENSORS, gson.toJson(sensors));
+        monitoringDevices.remove(sensor);
+        monitoringDevices.add(sensor);
+        persistentStorage.put(DEVICE_REGISTRY, jsonSerializer.toJson(monitoringDevices));
     }
 
     @Override
     public void setAlarmStatus(AlarmStatus alarmStatus) {
-        this.alarmStatus = alarmStatus;
-        prefs.put(ALARM_STATUS, this.alarmStatus.toString());
+        this.currentThreatLevel = alarmStatus;
+        persistentStorage.put(THREAT_LEVEL_STATE, this.currentThreatLevel.toString());
     }
 
     @Override
     public void setArmingStatus(ArmingStatus armingStatus) {
-        this.armingStatus = armingStatus;
-        prefs.put(ARMING_STATUS, this.armingStatus.toString());
+        this.operationalMode = armingStatus;
+        persistentStorage.put(OPERATIONAL_MODE_STATE, this.operationalMode.toString());
     }
 
     @Override
     public Set<Sensor> getSensors() {
-        return sensors;
+        return monitoringDevices;
     }
 
     @Override
     public AlarmStatus getAlarmStatus() {
-        return alarmStatus;
+        return currentThreatLevel;
     }
 
     @Override
     public ArmingStatus getArmingStatus() {
-        return armingStatus;
+        return operationalMode;
     }
 }

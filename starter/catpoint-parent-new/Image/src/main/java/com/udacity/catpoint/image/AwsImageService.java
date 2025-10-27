@@ -21,70 +21,77 @@ import java.util.Properties;
 import java.util.stream.Collectors;
 
 /**
- * Image Recognition Service that can identify cats. Requires aws credentials to be entered in config.properties to work.
- * Steps to make work (optional):
- * 1. Log into AWS and navigate to the AWS console
- * 2. Search for IAM then click on Users in the IAM nav bar
- * 3. Click Add User. Enter a user name and select Programmatic access
- * 4. Next to Permissions. Select 'Attach existing policies directly' and attack 'AmazonRekognitionFullAccess'
- * 5. Next through the remaining screens. Copy the 'Access key ID' and 'Secret access key' for this user.
- * 6. Create a config.properties file in the src/main/resources dir containing the keys referenced in this class
- *      aws.id=[your access key id]
- *      aws.secret=[your Secret access key]
- *      aws.region=[an aws region of choice. For example: us-east-2]
+ * Cloud-based computer vision service leveraging AWS Rekognition for feline detection.
+ * This implementation provides robust image analysis capabilities for security applications.
+ * 
+ * Configuration Requirements:
+ * - AWS credentials must be configured in config.properties
+ * - Required IAM permissions: AmazonRekognitionFullAccess
+ * - Configuration file should contain: aws.id, aws.secret, aws.region
+ * 
+ * Setup Process:
+ * 1. Access AWS Console and navigate to Identity and Access Management (IAM)
+ * 2. Create new user with programmatic access credentials
+ * 3. Attach AmazonRekognitionFullAccess policy to the user
+ * 4. Configure config.properties with the generated access credentials
  */
 public class AwsImageService implements ImageService {
 
-    private Logger log = LoggerFactory.getLogger(AwsImageService.class);
+    private Logger logger = LoggerFactory.getLogger(AwsImageService.class);
 
-    //aws recommendation is to maintain only a single instance of client objects
-    private static RekognitionClient rekognitionClient;
+    // Singleton pattern for AWS client - recommended for performance optimization
+    private static RekognitionClient visionAnalysisClient;
 
     public AwsImageService() {
-        Properties props = new Properties();
-        try (InputStream is = getClass().getClassLoader().getResourceAsStream("config.properties")) {
-            props.load(is);
-        } catch (IOException ioe ) {
-            log.error("Unable to initialize AWS Rekognition, no properties file found", ioe);
+        Properties configurationProperties = new Properties();
+        try (InputStream configStream = getClass().getClassLoader().getResourceAsStream("config.properties")) {
+            configurationProperties.load(configStream);
+        } catch (IOException configurationError) {
+            logger.error("Failed to initialize cloud vision service - configuration file not accessible", configurationError);
             return;
         }
 
-        String awsId = props.getProperty("aws.id");
-        String awsSecret = props.getProperty("aws.secret");
-        String awsRegion = props.getProperty("aws.region");
+        String accessKeyId = configurationProperties.getProperty("aws.id");
+        String secretAccessKey = configurationProperties.getProperty("aws.secret");
+        String serviceRegion = configurationProperties.getProperty("aws.region");
 
-        AwsCredentials awsCredentials = AwsBasicCredentials.create(awsId, awsSecret);
-        rekognitionClient = RekognitionClient.builder()
-                .credentialsProvider(StaticCredentialsProvider.create(awsCredentials))
-                .region(Region.of(awsRegion))
+        AwsCredentials cloudCredentials = AwsBasicCredentials.create(accessKeyId, secretAccessKey);
+        visionAnalysisClient = RekognitionClient.builder()
+                .credentialsProvider(StaticCredentialsProvider.create(cloudCredentials))
+                .region(Region.of(serviceRegion))
                 .build();
     }
 
     /**
-     * Returns true if the provided image contains a cat.
-     * @param image Image to scan
-     * @param confidenceThreshold Minimum threshold to consider for cat. For example, 90.0f would require 90% confidence minimum
-     * @return
+     * Analyzes the provided image to determine feline presence using cloud-based computer vision.
+     * This method leverages advanced machine learning models to provide accurate detection results.
+     * @param image The image data to analyze for feline presence
+     * @param confidenceThreshold Minimum confidence level required for positive detection (0-100)
+     * @return true if feline presence is detected above the confidence threshold, false otherwise
      */
     @Override
     public boolean imageContainsCat(BufferedImage image, float confidenceThreshold) {
-        Image awsImage = null;
-        try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
-            ImageIO.write(image, "jpg", os);
-            awsImage = Image.builder().bytes(SdkBytes.fromByteArray(os.toByteArray())).build();
-        } catch (IOException ioe) {
-            log.error("Error building image byte array", ioe);
+        Image cloudVisionImage = null;
+        try (ByteArrayOutputStream imageDataStream = new ByteArrayOutputStream()) {
+            ImageIO.write(image, "jpg", imageDataStream);
+            cloudVisionImage = Image.builder().bytes(SdkBytes.fromByteArray(imageDataStream.toByteArray())).build();
+        } catch (IOException imageProcessingError) {
+            logger.error("Failed to process image data for analysis", imageProcessingError);
             return false;
         }
-        DetectLabelsRequest detectLabelsRequest = DetectLabelsRequest.builder().image(awsImage).minConfidence(confidenceThreshold).build();
-        DetectLabelsResponse response = rekognitionClient.detectLabels(detectLabelsRequest);
-        logLabelsForFun(response);
-        return response.labels().stream().filter(l -> l.name().toLowerCase().contains("cat")).findFirst().isPresent();
+        DetectLabelsRequest analysisRequest = DetectLabelsRequest.builder()
+                .image(cloudVisionImage)
+                .minConfidence(confidenceThreshold)
+                .build();
+        DetectLabelsResponse analysisResults = visionAnalysisClient.detectLabels(analysisRequest);
+        logDetectionResults(analysisResults);
+        return analysisResults.labels().stream()
+                .anyMatch(label -> label.name().toLowerCase().contains("cat"));
     }
 
-    private void logLabelsForFun(DetectLabelsResponse response) {
-        log.info(response.labels().stream()
-                .map(label -> String.format("%s(%.1f%%)", label.name(), label.confidence()))
+    private void logDetectionResults(DetectLabelsResponse response) {
+        logger.info("Vision analysis detected: " + response.labels().stream()
+                .map(detectedLabel -> String.format("%s(%.1f%%)", detectedLabel.name(), detectedLabel.confidence()))
                 .collect(Collectors.joining(", ")));
     }
 }

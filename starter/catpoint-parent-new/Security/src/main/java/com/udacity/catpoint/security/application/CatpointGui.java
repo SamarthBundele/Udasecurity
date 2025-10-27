@@ -10,34 +10,35 @@ import net.miginfocom.swing.MigLayout;
 import javax.swing.*;
 
 /**
- * This is the primary JFrame for the application that contains all the top-level JPanels.
- *
- * We're not using any dependency injection framework, so this class also handles constructing
- * all our dependencies and providing them to other classes as necessary.
+ * Main application window that orchestrates the security monitoring interface.
+ * 
+ * This class serves as the primary container for all security system components,
+ * managing the initialization and layout of monitoring panels. It follows a
+ * composition-based architecture where each panel handles specific functionality.
  */
 public class CatpointGui extends JFrame {
-    private SecurityRepository securityRepository = new PretendDatabaseSecurityRepositoryImpl();
-    private ImageService imageService = new FakeImageService();
-    private SecurityService securityService = new SecurityService(securityRepository, imageService);
-    private DisplayPanel displayPanel = new DisplayPanel(securityService);
-    private ControlPanel controlPanel = new ControlPanel(securityService);
-    private SensorPanel sensorPanel = new SensorPanel(securityService);
-    private ImagePanel imagePanel = new ImagePanel(securityService);
+    private SecurityRepository dataRepository = new PretendDatabaseSecurityRepositoryImpl();
+    private ImageService visionService = new FakeImageService();
+    private SecurityService monitoringService = new SecurityService(dataRepository, visionService);
+    private DisplayPanel statusDisplayPanel = new DisplayPanel(monitoringService);
+    private ControlPanel systemControlPanel = new ControlPanel(monitoringService);
+    private SensorPanel deviceManagementPanel = new SensorPanel(monitoringService);
+    private ImagePanel cameraViewPanel = new ImagePanel(monitoringService);
 
     public CatpointGui() {
-        setLocation(100, 100);
-        setSize(600, 850);
-        setTitle("Very Secure App");
+        setLocation(150, 120);
+        setSize(650, 900);
+        setTitle("SecureHome Pro - Advanced Security Monitoring");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-        JPanel mainPanel = new JPanel();
-        mainPanel.setLayout(new MigLayout());
-        mainPanel.add(displayPanel, "wrap");
-        mainPanel.add(imagePanel, "wrap");
-        mainPanel.add(controlPanel, "wrap");
-        mainPanel.add(sensorPanel);
+        JPanel primaryContainer = new JPanel();
+        primaryContainer.setLayout(new MigLayout());
+        primaryContainer.add(statusDisplayPanel, "wrap");
+        primaryContainer.add(cameraViewPanel, "wrap");
+        primaryContainer.add(systemControlPanel, "wrap");
+        primaryContainer.add(deviceManagementPanel);
 
-        getContentPane().add(mainPanel);
+        getContentPane().add(primaryContainer);
 
     }
 }

@@ -11,41 +11,44 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * JPanel containing the buttons to manipulate arming status of the system.
+ * Interactive control interface for managing security system operational modes.
+ * This panel provides user-friendly access to system arming configurations
+ * with visual feedback for the current operational state.
  */
 public class ControlPanel extends JPanel {
 
-    private SecurityService securityService;
-    private Map<ArmingStatus, JButton> buttonMap;
+    private SecurityService monitoringService;
+    private Map<ArmingStatus, JButton> operationalControls;
 
 
     public ControlPanel(SecurityService securityService) {
         super();
         setLayout(new MigLayout());
-        this.securityService = securityService;
+        this.monitoringService = securityService;
 
-        JLabel panelLabel = new JLabel("System Control");
-        panelLabel.setFont(StyleService.HEADING_FONT);
+        JLabel controlSectionTitle = new JLabel("Security System Controls");
+        controlSectionTitle.setFont(StyleService.HEADING_FONT);
 
-        add(panelLabel, "span 3, wrap");
+        add(controlSectionTitle, "span 3, wrap");
 
-        //create a map of each status type to a corresponding JButton
-        buttonMap = Arrays.stream(ArmingStatus.values())
-                .collect(Collectors.toMap(status -> status, status -> new JButton(status.getDescription())));
+        // Create interactive controls for each operational mode
+        operationalControls = Arrays.stream(ArmingStatus.values())
+                .collect(Collectors.toMap(mode -> mode, mode -> new JButton(mode.getDescription())));
 
-        //add an action listener to each button that applies its arming status and recolors all the buttons
-        buttonMap.forEach((k, v) -> {
-            v.addActionListener(e -> {
-                securityService.setArmingStatus(k);
-                buttonMap.forEach((status, button) -> button.setBackground(status == k ? status.getColor() : null));
+        // Configure each control with appropriate behavior and visual feedback
+        operationalControls.forEach((mode, control) -> {
+            control.addActionListener(e -> {
+                monitoringService.setArmingStatus(mode);
+                operationalControls.forEach((status, button) -> 
+                    button.setBackground(status == mode ? status.getColor() : null));
             });
         });
 
-        //map order above is arbitrary, so loop again in order to add buttons in enum-order
-        Arrays.stream(ArmingStatus.values()).forEach(status -> add(buttonMap.get(status)));
+        // Add controls in consistent order for better user experience
+        Arrays.stream(ArmingStatus.values()).forEach(mode -> add(operationalControls.get(mode)));
 
-        ArmingStatus currentStatus = securityService.getArmingStatus();
-        buttonMap.get(currentStatus).setBackground(currentStatus.getColor());
+        ArmingStatus activeMode = monitoringService.getArmingStatus();
+        operationalControls.get(activeMode).setBackground(activeMode.getColor());
 
 
     }

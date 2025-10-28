@@ -22,51 +22,32 @@
       <version>1.0-SNAPSHOT</version>
     </dependency>
 
-    <!-- Google Guava for common utilities -->
+    <!-- Google Guava for common utilities - Security module specific -->
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
     </dependency>
 
-    <!-- Google Gson for JSON processing -->
+    <!-- Google Gson for JSON processing - Security module specific -->
     <dependency>
       <groupId>com.google.code.gson</groupId>
       <artifactId>gson</artifactId>
     </dependency>
 
-    <!-- SLF4J API for logging -->
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-    </dependency>
-
-    <!-- SLF4J Simple implementation for logging -->
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-simple</artifactId>
-    </dependency>
-
-    <!-- MigLayout for Swing layouts -->
+    <!-- MigLayout for Swing layouts - Security module specific -->
     <dependency>
       <groupId>com.miglayout</groupId>
       <artifactId>miglayout-swing</artifactId>
     </dependency>
 
-    <!-- JUnit 5 for testing -->
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter</artifactId>
-      <scope>test</scope>
-    </dependency>
-
-    <!-- Mockito for mocking in tests -->
+    <!-- Mockito for mocking in tests - Security module specific -->
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
       <scope>test</scope>
     </dependency>
 
-    <!-- Mockito JUnit Jupiter integration -->
+    <!-- Mockito JUnit Jupiter integration - Security module specific -->
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-junit-jupiter</artifactId>

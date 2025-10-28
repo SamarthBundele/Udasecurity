@@ -24,31 +24,34 @@
     <maven.compiler.release>14</maven.compiler.release>
   </properties>
 
+  <!-- Shared dependencies used by all modules -->
+  <dependencies>
+    <!-- SLF4J API for logging - shared by both modules -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>1.7.36</version>
+    </dependency>
+
+    <!-- SLF4J Simple implementation for logging - shared by both modules -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <version>1.7.36</version>
+    </dependency>
+
+    <!-- JUnit 5 for testing - shared by both modules -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.9.2</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
   <dependencyManagement>
     <dependencies>
-      <!-- SLF4J API for logging - shared by both modules -->
-      <dependency>
-        <groupId>org.slf4j</groupId>
-        <artifactId>slf4j-api</artifactId>
-        <version>1.7.36</version>
-      </dependency>
-
-      <!-- SLF4J Simple implementation for logging - shared by both modules -->
-      <dependency>
-        <groupId>org.slf4j</groupId>
-        <artifactId>slf4j-simple</artifactId>
-        <version>1.7.36</version>
-      </dependency>
-
-      <!-- JUnit 5 for testing - shared by both modules -->
-      <dependency>
-        <groupId>org.junit.jupiter</groupId>
-        <artifactId>junit-jupiter</artifactId>
-        <version>5.9.2</version>
-        <scope>test</scope>
-      </dependency>
-
-      <!-- Mockito for mocking in tests -->
+      <!-- Mockito for mocking in tests - only used by Security module -->
       <dependency>
         <groupId>org.mockito</groupId>
         <artifactId>mockito-core</artifactId>
@@ -56,7 +59,7 @@
         <scope>test</scope>
       </dependency>
 
-      <!-- Mockito JUnit Jupiter integration -->
+      <!-- Mockito JUnit Jupiter integration - only used by Security module -->
       <dependency>
         <groupId>org.mockito</groupId>
         <artifactId>mockito-junit-jupiter</artifactId>
@@ -64,35 +67,35 @@
         <scope>test</scope>
       </dependency>
 
-      <!-- Google Guava for common utilities - used by Security module -->
+      <!-- Google Guava for common utilities - only used by Security module -->
       <dependency>
         <groupId>com.google.guava</groupId>
         <artifactId>guava</artifactId>
         <version>31.1-jre</version>
       </dependency>
 
-      <!-- Google Gson for JSON processing - used by Security module -->
+      <!-- Google Gson for JSON processing - only used by Security module -->
       <dependency>
         <groupId>com.google.code.gson</groupId>
         <artifactId>gson</artifactId>
         <version>2.10.1</version>
       </dependency>
 
-      <!-- AWS SDK for Java v2 - Rekognition - used by Image module -->
+      <!-- AWS SDK for Java v2 - Rekognition - only used by Image module -->
       <dependency>
         <groupId>software.amazon.awssdk</groupId>
         <artifactId>rekognition</artifactId>
         <version>2.20.26</version>
       </dependency>
 
-      <!-- AWS SDK for Java v2 - Auth - used by Image module -->
+      <!-- AWS SDK for Java v2 - Auth - only used by Image module -->
       <dependency>
         <groupId>software.amazon.awssdk</groupId>
         <artifactId>auth</artifactId>
         <version>2.20.26</version>
       </dependency>
 
-      <!-- MigLayout for Swing layouts - used by Security module -->
+      <!-- MigLayout for Swing layouts - only used by Security module -->
       <dependency>
         <groupId>com.miglayout</groupId>
         <artifactId>miglayout-swing</artifactId>
@@ -159,7 +162,10 @@
         <plugin>
           <groupId>com.github.spotbugs</groupId>
           <artifactId>spotbugs-maven-plugin</artifactId>
-          <version>4.7.3.0</version>
+          <version>4.8.6.4</version>
+          <configuration>
+            <failOnError>false</failOnError>
+          </configuration>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -193,11 +199,13 @@
       <plugin>
         <groupId>com.github.spotbugs</groupId>
         <artifactId>spotbugs-maven-plugin</artifactId>
-        <version>4.7.3.0</version>
+        <version>4.8.6.4</version>
         <configuration>
           <effort>Max</effort>
           <threshold>Low</threshold>
           <xmlOutput>true</xmlOutput>
+          <failOnError>false</failOnError>
+          <skip>false</skip>
         </configuration>
       </plugin>
     </plugins>

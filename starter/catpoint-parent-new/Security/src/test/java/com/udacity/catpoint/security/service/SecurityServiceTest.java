@@ -197,6 +197,20 @@ public class SecurityServiceTest {
         verify(securityRepository).setAlarmStatus(AlarmStatus.ALARM);
     }
 
+    // Additional test for requirement 11: Cat detected while disarmed, then armed away should NOT trigger alarm
+    @Test
+    void systemArmedAway_catCurrentlyDetected_noAlarmStatusChange() {
+        when(imageService.imageContainsCat(any(BufferedImage.class), anyFloat())).thenReturn(true);
+        
+        // First detect cat while disarmed
+        securityService.processImage(new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB));
+        
+        // Then arm away - should NOT trigger alarm (only ARMED_HOME triggers alarm for cats)
+        securityService.setArmingStatus(ArmingStatus.ARMED_AWAY);
+        
+        verify(securityRepository, never()).setAlarmStatus(AlarmStatus.ALARM);
+    }
+
     // Additional tests for edge cases and full coverage
 
     @Test

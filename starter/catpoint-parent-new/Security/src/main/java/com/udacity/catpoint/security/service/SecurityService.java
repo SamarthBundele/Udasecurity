@@ -41,10 +41,14 @@ public class SecurityService {
             setAlarmStatus(AlarmStatus.NO_ALARM);
         } else {
             // When system becomes active, initialize all sensors to baseline state
-            getSensors().forEach(sensor -> {
-                sensor.setActive(false);
-                persistenceLayer.updateSensor(sensor);
-            });
+            // Create a copy to avoid ConcurrentModificationException
+            Set<Sensor> sensorsCopy = new HashSet<>(persistenceLayer.getSensors());
+            for (Sensor sensor : sensorsCopy) {
+                if (sensor.getActive()) {
+                    sensor.setActive(false);
+                    persistenceLayer.updateSensor(sensor);
+                }
+            }
         }
         persistenceLayer.setArmingStatus(armingStatus);
         

@@ -15,35 +15,16 @@
   <description>Image recognition service for detecting cats in images</description>
 
   <dependencies>
-    <!-- SLF4J API for logging -->
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-    </dependency>
-
-    <!-- SLF4J Simple implementation for logging -->
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-simple</artifactId>
-    </dependency>
-
-    <!-- AWS SDK for Java v2 - Rekognition -->
+    <!-- AWS SDK for Java v2 - Rekognition - Image module specific -->
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>rekognition</artifactId>
     </dependency>
 
-    <!-- AWS SDK for Java v2 - Auth -->
+    <!-- AWS SDK for Java v2 - Auth - Image module specific -->
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>auth</artifactId>
-    </dependency>
-
-    <!-- JUnit 5 for testing -->
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter</artifactId>
-      <scope>test</scope>
     </dependency>
   </dependencies>
 </project>

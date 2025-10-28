@@ -16,10 +16,8 @@ module com.udacity.catpoint.security {
     // MigLayout for GUI layouts (proper module name)
     requires com.miglayout.swing;
     
-    // Export packages that might be used by other modules
-    exports com.udacity.catpoint.security.application;
-    exports com.udacity.catpoint.security.service;
-    exports com.udacity.catpoint.security.data;
+    // Security module should NOT export any packages - it's the consumer, not provider
+    // No exports needed as this is the final application module
     
     // Open the data package to Gson for serialization via reflection
     opens com.udacity.catpoint.security.data to com.google.gson;

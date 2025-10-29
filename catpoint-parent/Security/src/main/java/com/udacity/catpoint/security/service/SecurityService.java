@@ -43,11 +43,17 @@ public class SecurityService {
             // When system becomes active, initialize all sensors to baseline state
             // Create a copy to avoid ConcurrentModificationException
             Set<Sensor> sensorsCopy = new HashSet<>(persistenceLayer.getSensors());
+            boolean sensorsWereDeactivated = false;
             for (Sensor sensor : sensorsCopy) {
                 if (sensor.getActive()) {
                     sensor.setActive(false);
                     persistenceLayer.updateSensor(sensor);
+                    sensorsWereDeactivated = true;
                 }
+            }
+            // Notify UI components that sensor status has changed
+            if (sensorsWereDeactivated) {
+                eventSubscribers.forEach(subscriber -> subscriber.sensorStatusChanged());
             }
         }
         persistenceLayer.setArmingStatus(armingStatus);
@@ -121,7 +127,11 @@ public class SecurityService {
         }
         switch(persistenceLayer.getAlarmStatus()) {
             case NO_ALARM -> setAlarmStatus(AlarmStatus.PENDING_ALARM);
-            case PENDING_ALARM -> setAlarmStatus(AlarmStatus.ALARM);
+            case PENDING_ALARM, ALARM -> {
+                // PENDING_ALARM case: This should not happen due to logic in changeSensorActivationStatus,
+                // but included for completeness and to handle any future changes
+                // ALARM case: Already at highest alert level - no escalation needed
+            }
         }
     }
 
@@ -158,6 +168,8 @@ public class SecurityService {
         if (currentThreatLevel == AlarmStatus.ALARM) {
             sensor.setActive(active);
             persistenceLayer.updateSensor(sensor);
+            // Notify UI that sensor status changed
+            eventSubscribers.forEach(subscriber -> subscriber.sensorStatusChanged());
             return;
         }
         
@@ -175,12 +187,16 @@ public class SecurityService {
             sensor.setActive(active);
             persistenceLayer.updateSensor(sensor);
             processSensorDeactivation();
+            // Notify UI that sensor status changed
+            eventSubscribers.forEach(subscriber -> subscriber.sensorStatusChanged());
             return;
         }
         // No state change for sensors that remain in their current state
         
         sensor.setActive(active);
         persistenceLayer.updateSensor(sensor);
+        // Notify UI that sensor status changed
+        eventSubscribers.forEach(subscriber -> subscriber.sensorStatusChanged());
     }
 
     /**

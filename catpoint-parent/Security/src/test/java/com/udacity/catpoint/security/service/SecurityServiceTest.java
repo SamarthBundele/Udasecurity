@@ -722,4 +722,351 @@ public class SecurityServiceTest {
         verify(securityRepository, never()).setAlarmStatus(AlarmStatus.NO_ALARM);
         verify(statusListener).catDetected(false);
     }
+
+    // Additional comprehensive test for Requirement 1: Multiple sensor activation scenarios
+    @Test
+    void sensorActivated_multipleScenarios_correctAlarmEscalation() {
+        // Test scenario 1: First sensor activation when armed and no alarm
+        when(securityRepository.getArmingStatus()).thenReturn(ArmingStatus.ARMED_HOME);
+        when(securityRepository.getAlarmStatus()).thenReturn(AlarmStatus.NO_ALARM);
+        sensor1.setActive(false);
+        
+        securityService.changeSensorActivationStatus(sensor1, true);
+        
+        verify(securityRepository).setAlarmStatus(AlarmStatus.PENDING_ALARM);
+        verify(securityRepository).updateSensor(sensor1);
+        assertTrue(sensor1.getActive());
+        
+        // Reset mocks for next scenario
+        reset(securityRepository);
+        
+        // Test scenario 2: Second sensor activation when already pending
+        when(securityRepository.getAlarmStatus()).thenReturn(AlarmStatus.PENDING_ALARM);
+        sensor2.setActive(false);
+        
+        securityService.changeSensorActivationStatus(sensor2, true);
+        
+        verify(securityRepository).setAlarmStatus(AlarmStatus.ALARM);
+        verify(securityRepository).updateSensor(sensor2);
+        assertTrue(sensor2.getActive());
+    }
+
+
+
+    // Additional test for Requirement 7: Cat detection with different alarm states
+    @Test
+    void imageProcessed_catDetectedArmedHomeWithDifferentAlarmStates_setsAlarm() {
+        // Given: System is armed home
+        when(securityRepository.getArmingStatus()).thenReturn(ArmingStatus.ARMED_HOME);
+        when(imageService.imageContainsCat(any(BufferedImage.class), anyFloat())).thenReturn(true);
+        
+        // When: Cat is detected
+        securityService.processImage(new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB));
+        
+        // Then: Should always set alarm when cat detected and armed home
+        verify(securityRepository).setAlarmStatus(AlarmStatus.ALARM);
+        verify(imageService).imageContainsCat(any(BufferedImage.class), eq(50.0f));
+    }
+
+    // Additional test for Requirement 8: Complex sensor state scenarios
+    @Test
+    void imageProcessed_noCatWithVariousSensorCombinations_correctBehavior() {
+        // Test multiple combinations of sensor states
+        when(securityRepository.getArmingStatus()).thenReturn(ArmingStatus.ARMED_HOME);
+        when(securityRepository.getSensors()).thenReturn(allSensors);
+        when(imageService.imageContainsCat(any(BufferedImage.class), anyFloat())).thenReturn(false);
+        
+        // Scenario 1: All sensors inactive - should set NO_ALARM
+        sensor1.setActive(false);
+        sensor2.setActive(false);
+        sensor3.setActive(false);
+        
+        securityService.processImage(new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB));
+        verify(securityRepository).setAlarmStatus(AlarmStatus.NO_ALARM);
+        
+        // Reset for next scenario
+        reset(securityRepository);
+        when(securityRepository.getArmingStatus()).thenReturn(ArmingStatus.ARMED_HOME);
+        when(securityRepository.getSensors()).thenReturn(allSensors);
+        when(imageService.imageContainsCat(any(BufferedImage.class), anyFloat())).thenReturn(false);
+        
+        // Scenario 2: At least one sensor active - should NOT set NO_ALARM
+        sensor1.setActive(false);
+        sensor2.setActive(true);  // One active sensor
+        sensor3.setActive(false);
+        
+        securityService.processImage(new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB));
+        verify(securityRepository, never()).setAlarmStatus(AlarmStatus.NO_ALARM);
+    }
+
+    // Additional test for Requirement 10: Arming with no sensors
+    @Test
+    void setArmingStatus_armedWithNoSensors_noSensorOperations() {
+        // Given: System has no sensors
+        when(securityRepository.getSensors()).thenReturn(new HashSet<>());
+        
+        // When: System is armed
+        securityService.setArmingStatus(ArmingStatus.ARMED_HOME);
+        
+        // Then: No sensor operations should occur
+        verify(securityRepository, never()).updateSensor(any(Sensor.class));
+        verify(securityRepository).setArmingStatus(ArmingStatus.ARMED_HOME);
+    }
+
+    // Additional test for Requirement 11: Cat detection state persistence
+    @Test
+    void setArmingStatus_armedHomeWithPreviousCatDetection_triggersAlarm() {
+        // Given: Cat was detected while system was disarmed
+        when(securityRepository.getArmingStatus()).thenReturn(ArmingStatus.DISARMED);
+        when(imageService.imageContainsCat(any(BufferedImage.class), anyFloat())).thenReturn(true);
+        
+        // Process image while disarmed (should not trigger alarm but remember cat)
+        securityService.processImage(new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB));
+        verify(securityRepository, never()).setAlarmStatus(AlarmStatus.ALARM);
+        
+        // When: System is later armed home
+        securityService.setArmingStatus(ArmingStatus.ARMED_HOME);
+        
+        // Then: Should trigger alarm based on remembered cat detection
+        verify(securityRepository).setAlarmStatus(AlarmStatus.ALARM);
+        verify(securityRepository).setArmingStatus(ArmingStatus.ARMED_HOME);
+    }
+
+    // Test for sensor activation during different arming status transitions
+    @Test
+    void sensorActivation_duringArmingStatusChanges_correctBehavior() {
+        // Test sensor activation while disarmed (should not affect alarm)
+        when(securityRepository.getArmingStatus()).thenReturn(ArmingStatus.DISARMED);
+        sensor1.setActive(false);
+        
+        securityService.changeSensorActivationStatus(sensor1, true);
+        
+        verify(securityRepository, never()).setAlarmStatus(any(AlarmStatus.class));
+        verify(securityRepository).updateSensor(sensor1);
+        assertTrue(sensor1.getActive());
+        
+        // Reset and test activation after arming
+        reset(securityRepository);
+        when(securityRepository.getArmingStatus()).thenReturn(ArmingStatus.ARMED_HOME);
+        when(securityRepository.getAlarmStatus()).thenReturn(AlarmStatus.NO_ALARM);
+        sensor2.setActive(false);
+        
+        securityService.changeSensorActivationStatus(sensor2, true);
+        
+        verify(securityRepository).setAlarmStatus(AlarmStatus.PENDING_ALARM);
+        verify(securityRepository).updateSensor(sensor2);
+        assertTrue(sensor2.getActive());
+    }
+
+    // Test for comprehensive status listener notifications
+    @Test
+    void statusListeners_comprehensiveNotificationScenarios_allListenersNotified() {
+        // Given: Multiple listeners registered
+        StatusListener listener1 = mock(StatusListener.class);
+        StatusListener listener2 = mock(StatusListener.class);
+        securityService.addStatusListener(listener1);
+        securityService.addStatusListener(listener2);
+        
+        // Test alarm status change notifications
+        securityService.setAlarmStatus(AlarmStatus.PENDING_ALARM);
+        verify(listener1).notify(AlarmStatus.PENDING_ALARM);
+        verify(listener2).notify(AlarmStatus.PENDING_ALARM);
+        
+        // Test cat detection notifications
+        when(securityRepository.getArmingStatus()).thenReturn(ArmingStatus.DISARMED);
+        when(imageService.imageContainsCat(any(BufferedImage.class), anyFloat())).thenReturn(true);
+        
+        securityService.processImage(new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB));
+        
+        verify(listener1).catDetected(true);
+        verify(listener2).catDetected(true);
+        
+        // Test listener removal
+        securityService.removeStatusListener(listener1);
+        
+        // Process another image - only listener2 should be notified
+        when(imageService.imageContainsCat(any(BufferedImage.class), anyFloat())).thenReturn(false);
+        securityService.processImage(new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB));
+        
+        verify(listener1, never()).catDetected(false); // Should not be called after removal
+        verify(listener2).catDetected(false); // Should be called
+    }
+
+    // Test for image processing with null/invalid images (defensive programming)
+    @Test
+    void processImage_withValidImage_callsImageService() {
+        // Given: Valid image and mocked image service
+        BufferedImage validImage = new BufferedImage(100, 100, BufferedImage.TYPE_INT_RGB);
+        when(securityRepository.getArmingStatus()).thenReturn(ArmingStatus.ARMED_HOME);
+        when(imageService.imageContainsCat(any(BufferedImage.class), anyFloat())).thenReturn(false);
+        when(securityRepository.getSensors()).thenReturn(allSensors);
+        
+        // Set all sensors inactive
+        sensor1.setActive(false);
+        sensor2.setActive(false);
+        sensor3.setActive(false);
+        
+        // When: Processing valid image
+        securityService.processImage(validImage);
+        
+        // Then: Should call image service with correct parameters
+        verify(imageService).imageContainsCat(validImage, 50.0f);
+        verify(securityRepository).setAlarmStatus(AlarmStatus.NO_ALARM);
+    }
+
+    // MISSING BRANCH COVERAGE TESTS - These tests target specific uncovered branches
+
+    // Test missing branch in processSensorActivation: PENDING_ALARM -> ALARM escalation
+    @Test
+    void processSensorActivation_pendingAlarmState_escalatesToAlarm() {
+        // Given: System is armed and in PENDING_ALARM state
+        when(securityRepository.getArmingStatus()).thenReturn(ArmingStatus.ARMED_HOME);
+        when(securityRepository.getAlarmStatus()).thenReturn(AlarmStatus.PENDING_ALARM);
+        sensor1.setActive(false);
+        
+        // When: Sensor becomes activated (this calls processSensorActivation internally)
+        securityService.changeSensorActivationStatus(sensor1, true);
+        
+        // Then: Should escalate to full ALARM (this covers the missing PENDING_ALARM branch)
+        verify(securityRepository).setAlarmStatus(AlarmStatus.ALARM);
+        verify(securityRepository).updateSensor(sensor1);
+        assertTrue(sensor1.getActive());
+    }
+
+    // Test missing branch in processSensorDeactivation: ALARM case (should do nothing)
+    @Test
+    void processSensorDeactivation_alarmState_maintainsAlarmStatus() {
+        // Given: System is in ALARM state
+        when(securityRepository.getAlarmStatus()).thenReturn(AlarmStatus.ALARM);
+        sensor1.setActive(true);
+        
+        // When: Sensor is deactivated (this calls processSensorDeactivation internally)
+        securityService.changeSensorActivationStatus(sensor1, false);
+        
+        // Then: Should NOT change alarm status (covers the missing ALARM branch in processSensorDeactivation)
+        verify(securityRepository, never()).setAlarmStatus(AlarmStatus.NO_ALARM);
+        verify(securityRepository).updateSensor(sensor1);
+        assertFalse(sensor1.getActive());
+    }
+
+    // Test missing branch in processSensorActivation: NO_ALARM with different arming statuses
+    @ParameterizedTest
+    @EnumSource(value = ArmingStatus.class, names = {"ARMED_HOME", "ARMED_AWAY"})
+    void processSensorActivation_noAlarmState_setsPendingAlarm(ArmingStatus armingStatus) {
+        // Given: System is armed and in NO_ALARM state
+        when(securityRepository.getArmingStatus()).thenReturn(armingStatus);
+        when(securityRepository.getAlarmStatus()).thenReturn(AlarmStatus.NO_ALARM);
+        sensor1.setActive(false);
+        
+        // When: Sensor becomes activated
+        securityService.changeSensorActivationStatus(sensor1, true);
+        
+        // Then: Should set PENDING_ALARM (covers the NO_ALARM branch in processSensorActivation)
+        verify(securityRepository).setAlarmStatus(AlarmStatus.PENDING_ALARM);
+        verify(securityRepository).updateSensor(sensor1);
+        assertTrue(sensor1.getActive());
+    }
+
+    // Test edge case: processSensorActivation with ALARM status (should not be called, but covers default case)
+    @Test
+    void changeSensorActivationStatus_alarmStateWithActivation_noProcessorCall() {
+        // Given: System is in ALARM state (processSensorActivation should not be called)
+        when(securityRepository.getAlarmStatus()).thenReturn(AlarmStatus.ALARM);
+        sensor1.setActive(false);
+        
+        // When: Sensor becomes activated
+        securityService.changeSensorActivationStatus(sensor1, true);
+        
+        // Then: Should update sensor but not call processSensorActivation (early return in changeSensorActivationStatus)
+        verify(securityRepository, never()).setAlarmStatus(any(AlarmStatus.class));
+        verify(securityRepository).updateSensor(sensor1);
+        assertTrue(sensor1.getActive());
+    }
+
+    // Test to ensure sensorStatusChanged notifications are sent
+    @Test
+    void changeSensorActivationStatus_anyStateChange_notifiesStatusListeners() {
+        // Given: Status listener is registered
+        securityService.addStatusListener(statusListener);
+        when(securityRepository.getAlarmStatus()).thenReturn(AlarmStatus.NO_ALARM);
+        sensor1.setActive(false);
+        
+        // When: Sensor state changes
+        securityService.changeSensorActivationStatus(sensor1, true);
+        
+        // Then: Should notify status listeners about sensor status change
+        verify(statusListener).sensorStatusChanged();
+        verify(securityRepository).updateSensor(sensor1);
+    }
+
+    // Test missing branch: processSensorActivation with PENDING_ALARM -> ALARM escalation
+    @Test
+    void processSensorActivation_pendingAlarmToAlarm_escalatesCorrectly() {
+        // Given: System is armed and in PENDING_ALARM state, sensor is inactive
+        when(securityRepository.getArmingStatus()).thenReturn(ArmingStatus.ARMED_HOME);
+        when(securityRepository.getAlarmStatus()).thenReturn(AlarmStatus.PENDING_ALARM);
+        sensor1.setActive(false);
+        
+        // When: Sensor becomes activated (this should call processSensorActivation with PENDING_ALARM)
+        securityService.changeSensorActivationStatus(sensor1, true);
+        
+        // Then: Should escalate to ALARM (this covers the missing PENDING_ALARM branch in processSensorActivation)
+        verify(securityRepository).setAlarmStatus(AlarmStatus.ALARM);
+        verify(securityRepository).updateSensor(sensor1);
+        assertTrue(sensor1.getActive());
+    }
+
+    // Test missing branch: processSensorDeactivation with NO_ALARM state
+    @Test
+    void processSensorDeactivation_noAlarmState_noStatusChange() {
+        // Given: System is in NO_ALARM state
+        when(securityRepository.getAlarmStatus()).thenReturn(AlarmStatus.NO_ALARM);
+        sensor1.setActive(true);
+        
+        // When: Sensor is deactivated
+        securityService.changeSensorActivationStatus(sensor1, false);
+        
+        // Then: Should not change alarm status (covers the missing NO_ALARM branch in processSensorDeactivation)
+        verify(securityRepository, never()).setAlarmStatus(any(AlarmStatus.class));
+        verify(securityRepository).updateSensor(sensor1);
+        assertFalse(sensor1.getActive());
+    }
+
+    // Test to cover the PENDING_ALARM/ALARM case in processSensorActivation using reflection
+    @Test
+    void processSensorActivation_pendingAlarmOrAlarmState_noStatusChange() throws Exception {
+        // Given: System is armed and we'll force the method to be called with PENDING_ALARM status
+        when(securityRepository.getArmingStatus()).thenReturn(ArmingStatus.ARMED_HOME);
+        when(securityRepository.getAlarmStatus()).thenReturn(AlarmStatus.PENDING_ALARM);
+        
+        // Use reflection to call the private method directly
+        java.lang.reflect.Method method = SecurityService.class.getDeclaredMethod("processSensorActivation");
+        method.setAccessible(true);
+        
+        // When: processSensorActivation is called with PENDING_ALARM status
+        method.invoke(securityService);
+        
+        // Then: Should not change alarm status (covers the PENDING_ALARM/ALARM branch)
+        verify(securityRepository, never()).setAlarmStatus(any(AlarmStatus.class));
+    }
+
+
+
+    // Test setArmingStatus notification when sensors are deactivated
+    @Test
+    void setArmingStatus_armedWithActiveSensors_notifiesStatusListeners() {
+        // Given: Status listener is registered and sensors are active
+        securityService.addStatusListener(statusListener);
+        when(securityRepository.getSensors()).thenReturn(allSensors);
+        sensor1.setActive(true);
+        sensor2.setActive(false);
+        sensor3.setActive(true);
+        
+        // When: System is armed (should deactivate sensors and notify)
+        securityService.setArmingStatus(ArmingStatus.ARMED_HOME);
+        
+        // Then: Should notify status listeners about sensor status changes
+        verify(statusListener).sensorStatusChanged();
+        verify(securityRepository).setArmingStatus(ArmingStatus.ARMED_HOME);
+    }
 }

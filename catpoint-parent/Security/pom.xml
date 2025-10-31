@@ -94,4 +94,25 @@
       </plugin>
     </plugins>
   </build>
+
+  <reporting>
+    <plugins>
+      <!-- SpotBugs reporting plugin -->
+      <plugin>
+        <groupId>com.github.spotbugs</groupId>
+        <artifactId>spotbugs-maven-plugin</artifactId>
+        <version>4.7.3.6</version>
+        <configuration>
+          <effort>Max</effort>
+          <threshold>Low</threshold>
+          <xmlOutput>true</xmlOutput>
+          <htmlOutput>true</htmlOutput>
+          <failOnError>false</failOnError>
+          <skip>false</skip>
+          <excludeFilterFile></excludeFilterFile>
+          <includeFilterFile></includeFilterFile>
+        </configuration>
+      </plugin>
+    </plugins>
+  </reporting>
 </project>
